@@ -1,0 +1,45 @@
+version: '3'
+services:
+  airflow:
+    image: apache/airflow:2.2.3
+    ports:
+      - "8080:8080"
+    environment:
+      - AIRFLOW__CORE__LOAD_EXAMPLES=False
+      - AIRFLOW__CORE__SQL_ALCHEMY_CONN=postgresql+psycopg2://<username>:<password>@<hostname>:<port>/<database>
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./logs:/opt/airflow/logs
+      - ./plugins:/opt/airflow/plugins
+      - ./data:/data
+    depends_on:
+      - neo4j
+    command: webserver
+  neo4j:
+    image: neo4j:4.4
+    ports:
+      - "7474:7474"
+      - "7687:7687"
+    volumes:
+      - ./neo4j/data:/data
+      - ./neo4j/logs:/logs
+      - ./neo4j/import:/import
+      - ./neo4j/plugins:/plugins
+    environment:
+      - NEO4J_AUTH=neo4j/password
+  parser:
+    image: python:3.9-slim
+    volumes:
+      - ./data:/data
+      - ./scripts:/scripts
+    command: python /scripts/parser.py /data/input.xml /data/output.csv
+  loader:
+    image: neo4j/neo4j-experimental-loader:4.4
+    volumes:
+      - ./data:/data
+      - ./neo4j/import:/import
+      - ./neo4j/plugins:/plugins
+      - ./logs:/logs
+    environment:
+      - NEO4J_AUTH=neo4j/password
+    command: --nodes /import/nodes.csv --relationships /import/relationships.csv --delimiter ","
